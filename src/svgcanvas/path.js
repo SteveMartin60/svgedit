@@ -1,4 +1,3 @@
-/* globals jQuery */
 /**
  * Path functionality.
  * @module path
@@ -7,14 +6,14 @@
  * @copyright 2011 Alexis Deveria, 2011 Jeff Schiller
  */
 
-import {getTransformList} from '../common/svgtransformlist.js';
-import {shortFloat} from '../common/units.js';
-import {transformPoint} from '../common/math.js';
+import { getTransformList } from './svgtransformlist.js';
+import { shortFloat } from '../common/units.js';
+import { transformPoint } from './math.js';
 import {
   getRotationAngle, getBBox,
   getRefElem, findDefs, isNullish,
   getBBox as utilsGetBBox
-} from '../common/utilities.js';
+} from './utilities.js';
 import {
   init as pathMethodInit, insertItemBeforeMethod, ptObjToArrMethod, getGripPtMethod,
   getPointFromGripMethod, addPointGripMethod, getGripContainerMethod, addCtrlGripMethod,
@@ -25,18 +24,16 @@ import {
   init as pathActionsInit, pathActionsMethod
 } from './path-actions.js';
 
-const $ = jQuery;
-
 const segData = {
-  2: ['x', 'y'], // PATHSEG_MOVETO_ABS
-  4: ['x', 'y'], // PATHSEG_LINETO_ABS
-  6: ['x', 'y', 'x1', 'y1', 'x2', 'y2'], // PATHSEG_CURVETO_CUBIC_ABS
-  8: ['x', 'y', 'x1', 'y1'], // PATHSEG_CURVETO_QUADRATIC_ABS
-  10: ['x', 'y', 'r1', 'r2', 'angle', 'largeArcFlag', 'sweepFlag'], // PATHSEG_ARC_ABS
-  12: ['x'], // PATHSEG_LINETO_HORIZONTAL_ABS
-  14: ['y'], // PATHSEG_LINETO_VERTICAL_ABS
-  16: ['x', 'y', 'x2', 'y2'], // PATHSEG_CURVETO_CUBIC_SMOOTH_ABS
-  18: ['x', 'y'] // PATHSEG_CURVETO_QUADRATIC_SMOOTH_ABS
+  2: [ 'x', 'y' ], // PATHSEG_MOVETO_ABS
+  4: [ 'x', 'y' ], // PATHSEG_LINETO_ABS
+  6: [ 'x', 'y', 'x1', 'y1', 'x2', 'y2' ], // PATHSEG_CURVETO_CUBIC_ABS
+  8: [ 'x', 'y', 'x1', 'y1' ], // PATHSEG_CURVETO_QUADRATIC_ABS
+  10: [ 'x', 'y', 'r1', 'r2', 'angle', 'largeArcFlag', 'sweepFlag' ], // PATHSEG_ARC_ABS
+  12: [ 'x' ], // PATHSEG_LINETO_HORIZONTAL_ABS
+  14: [ 'y' ], // PATHSEG_LINETO_VERTICAL_ABS
+  16: [ 'x', 'y', 'x2', 'y2' ], // PATHSEG_CURVETO_CUBIC_SMOOTH_ABS
+  18: [ 'x', 'y' ] // PATHSEG_CURVETO_QUADRATIC_SMOOTH_ABS
 };
 
 /**
@@ -77,7 +74,7 @@ export const setLinkControlPoints = function (lcp) {
  * @type {null|module:path.Path}
  * @memberof module:path
 */
-export let path = null; // eslint-disable-line import/no-mutable-exports
+export let path = null;
 
 let editorContext_ = null;
 
@@ -89,7 +86,8 @@ let editorContext_ = null;
 * Object with the following keys/values.
 * @typedef {PlainObject} module:path.SVGElementJSON
 * @property {string} element - Tag name of the SVG element to create
-* @property {PlainObject<string, string>} attr - Has key-value attributes to assign to the new element. An `id` should be set so that {@link module:utilities.EditorContext#addSVGElementFromJson} can later re-identify the element for modification or replacement.
+* @property {PlainObject<string, string>} attr - Has key-value attributes to assign to the new element.
+*   An `id` should be set so that {@link module:utilities.EditorContext#addSVGElementFromJson} can later re-identify the element for modification or replacement.
 * @property {boolean} [curStyles=false] - Indicates whether current style attributes should be applied first
 * @property {module:path.SVGElementJSON[]} [children] - Data objects to be added recursively as children
 * @property {string} [namespace="http://www.w3.org/2000/svg"] - Indicate a (non-SVG) namespace
@@ -102,7 +100,8 @@ let editorContext_ = null;
 /**
  * @function module:path.EditorContext#call
  * @param {"selected"|"changed"} ev - String with the event name
- * @param {module:svgcanvas.SvgCanvas#event:selected|module:svgcanvas.SvgCanvas#event:changed} arg - Argument to pass through to the callback function. If the event is "changed", an array of `Element`s is passed; if "selected", a single-item array of `Element` is passed.
+ * @param {module:svgcanvas.SvgCanvas#event:selected|module:svgcanvas.SvgCanvas#event:changed} arg - Argument to pass through to the callback function.
+ *  If the event is "changed", an array of `Element`s is passed; if "selected", a single-item array of `Element` is passed.
  * @returns {void}
  */
 /**
@@ -239,12 +238,12 @@ let editorContext_ = null;
 export const init = function (editorContext) {
   editorContext_ = editorContext;
 
-  pathFuncs = [0, 'ClosePath'];
+  pathFuncs = [ 0, 'ClosePath' ];
   const pathFuncsStrs = [
     'Moveto', 'Lineto', 'CurvetoCubic', 'CurvetoQuadratic', 'Arc',
     'LinetoHorizontal', 'LinetoVertical', 'CurvetoCubicSmooth', 'CurvetoQuadraticSmooth'
   ];
-  $.each(pathFuncsStrs, function (i, s) {
+  pathFuncsStrs.forEach(function(s){
     pathFuncs.push(s + 'Abs');
     pathFuncs.push(s + 'Rel');
   });
@@ -273,7 +272,7 @@ pathMethodInit(
 * @returns {void}
 */
 export const insertItemBefore = insertItemBeforeMethod;
-
+/* eslint-disable max-len */
 /**
 * @function module:path.ptObjToArr
 * @todo See if this should just live in `replacePathSeg`
@@ -281,6 +280,7 @@ export const insertItemBefore = insertItemBeforeMethod;
 * @param {SVGPathSegMovetoAbs|SVGPathSegLinetoAbs|SVGPathSegCurvetoCubicAbs|SVGPathSegCurvetoQuadraticAbs|SVGPathSegArcAbs|SVGPathSegLinetoHorizontalAbs|SVGPathSegLinetoVerticalAbs|SVGPathSegCurvetoCubicSmoothAbs|SVGPathSegCurvetoQuadraticSmoothAbs} segItem
 * @returns {ArgumentsArray}
 */
+/* eslint-enable max-len */
 export const ptObjToArr = ptObjToArrMethod;
 
 /**
@@ -382,26 +382,26 @@ export const getSegSelector = getSegSelectorMethod;
 */
 export const smoothControlPoints = function (ct1, ct2, pt) {
   // each point must not be the origin
-  const x1 = ct1.x - pt.x,
-    y1 = ct1.y - pt.y,
-    x2 = ct2.x - pt.x,
-    y2 = ct2.y - pt.y;
+  const x1 = ct1.x - pt.x;
+  const y1 = ct1.y - pt.y;
+  const x2 = ct2.x - pt.x;
+  const y2 = ct2.y - pt.y;
 
   if ((x1 !== 0 || y1 !== 0) && (x2 !== 0 || y2 !== 0)) {
     const
-      r1 = Math.sqrt(x1 * x1 + y1 * y1),
-      r2 = Math.sqrt(x2 * x2 + y2 * y2),
-      nct1 = editorContext_.getSVGRoot().createSVGPoint(),
-      nct2 = editorContext_.getSVGRoot().createSVGPoint();
-    let anglea = Math.atan2(y1, x1),
-      angleb = Math.atan2(y2, x2);
+      r1 = Math.sqrt(x1 * x1 + y1 * y1);
+    const r2 = Math.sqrt(x2 * x2 + y2 * y2);
+    const nct1 = editorContext_.getSVGRoot().createSVGPoint();
+    const nct2 = editorContext_.getSVGRoot().createSVGPoint();
+    let anglea = Math.atan2(y1, x1);
+    let angleb = Math.atan2(y2, x2);
     if (anglea < 0) { anglea += 2 * Math.PI; }
     if (angleb < 0) { angleb += 2 * Math.PI; }
 
-    const angleBetween = Math.abs(anglea - angleb),
-      angleDiff = Math.abs(Math.PI - angleBetween) / 2;
+    const angleBetween = Math.abs(anglea - angleb);
+    const angleDiff = Math.abs(Math.PI - angleBetween) / 2;
 
-    let newAnglea, newAngleb;
+    let newAnglea; let newAngleb;
     if (anglea - angleb > 0) {
       newAnglea = angleBetween < Math.PI ? (anglea + angleDiff) : (anglea - angleDiff);
       newAngleb = angleBetween < Math.PI ? (angleb - angleDiff) : (angleb + angleDiff);
@@ -416,7 +416,7 @@ export const smoothControlPoints = function (ct1, ct2, pt) {
     nct2.x = r2 * Math.cos(newAngleb) + pt.x;
     nct2.y = r2 * Math.sin(newAngleb) + pt.y;
 
-    return [nct1, nct2];
+    return [ nct1, nct2 ];
   }
   return undefined;
 };
@@ -443,7 +443,7 @@ export const removePath_ = function (id) {
   if (id in pathData) { delete pathData[id]; }
 };
 
-let newcx, newcy, oldcx, oldcy, angle;
+let newcx; let newcy; let oldcx; let oldcy; let angle;
 
 const getRotVals = function (x, y) {
   let dx = x - oldcx;
@@ -465,8 +465,8 @@ const getRotVals = function (x, y) {
   r = Math.sqrt(dx * dx + dy * dy);
   theta = Math.atan2(dy, dx) - angle;
 
-  return {x: r * Math.cos(theta) + newcx,
-    y: r * Math.sin(theta) + newcy};
+  return { x: r * Math.cos(theta) + newcx,
+    y: r * Math.sin(theta) + newcy };
 };
 
 // If the path was rotated, we must now pay the piper:
@@ -493,10 +493,10 @@ export const recalcRotatedPath = function () {
   newcy = box.y + box.height / 2;
 
   // un-rotate the new center to the proper position
-  const dx = newcx - oldcx,
-    dy = newcy - oldcy,
-    r = Math.sqrt(dx * dx + dy * dy),
-    theta = Math.atan2(dy, dx) + angle;
+  const dx = newcx - oldcx;
+  const dy = newcy - oldcy;
+  const r = Math.sqrt(dx * dx + dy * dy);
+  const theta = Math.atan2(dy, dx) + angle;
 
   newcx = r * Math.cos(theta) + oldcx;
   newcy = r * Math.sin(theta) + oldcy;
@@ -506,12 +506,12 @@ export const recalcRotatedPath = function () {
   let i = list.numberOfItems;
   while (i) {
     i -= 1;
-    const seg = list.getItem(i),
-      type = seg.pathSegType;
+    const seg = list.getItem(i);
+    const type = seg.pathSegType;
     if (type === 1) { continue; }
 
-    const rvals = getRotVals(seg.x, seg.y),
-      points = [rvals.x, rvals.y];
+    const rvals = getRotVals(seg.x, seg.y);
+    const points = [ rvals.x, rvals.y ];
     if (!isNullish(seg.x1) && !isNullish(seg.x2)) {
       const cVals1 = getRotVals(seg.x1, seg.y1);
       const cVals2 = getRotVals(seg.x2, seg.y2);
@@ -525,8 +525,8 @@ export const recalcRotatedPath = function () {
   // selectedBBoxes[0].width = box.width; selectedBBoxes[0].height = box.height;
 
   // now we must set the new transform to be rotated around the new center
-  const Rnc = editorContext_.getSVGRoot().createSVGTransform(),
-    tlist = getTransformList(currentPath);
+  const Rnc = editorContext_.getSVGRoot().createSVGTransform();
+  const tlist = getTransformList(currentPath);
   Rnc.setRotate((angle * 180.0 / Math.PI), newcx, newcy);
   tlist.replaceItem(Rnc, 0);
 };
@@ -581,8 +581,9 @@ export const reorientGrads = function (elem, m) {
         };
 
         const newgrad = grad.cloneNode(true);
-        $(newgrad).attr(gCoords);
-
+        for (const [ key, value ] of Object.entries(gCoords)) {
+          newgrad.setAttribute(key, value);
+        }
         newgrad.id = editorContext_.getNextId();
         findDefs().append(newgrad);
         elem.setAttribute(type, 'url(#' + newgrad.id + ')');
@@ -610,21 +611,21 @@ const pathMap = [
  * @returns {string}
  */
 export const convertPath = function (pth, toRel) {
-  const {pathSegList} = pth;
+  const { pathSegList } = pth;
   const len = pathSegList.numberOfItems;
-  let curx = 0, cury = 0;
+  let curx = 0; let cury = 0;
   let d = '';
   let lastM = null;
 
   for (let i = 0; i < len; ++i) {
     const seg = pathSegList.getItem(i);
     // if these properties are not in the segment, set them to zero
-    let x = seg.x || 0,
-      y = seg.y || 0,
-      x1 = seg.x1 || 0,
-      y1 = seg.y1 || 0,
-      x2 = seg.x2 || 0,
-      y2 = seg.y2 || 0;
+    let x = seg.x || 0;
+    let y = seg.y || 0;
+    let x1 = seg.x1 || 0;
+    let y1 = seg.y1 || 0;
+    let x2 = seg.x2 || 0;
+    let y2 = seg.y2 || 0;
 
     const type = seg.pathSegType;
     let letter = pathMap[type][toRel ? 'toLowerCase' : 'toUpperCase']();
@@ -652,7 +653,7 @@ export const convertPath = function (pth, toRel) {
         letter = 'L';
       }
       // Convert to "line" for easier editing
-      d += pathDSegment(letter, [[x, y]]);
+      d += pathDSegment(letter, [ [ x, y ] ]);
       break;
     case 14: // absolute vertical line (V)
       y -= cury;
@@ -669,11 +670,12 @@ export const convertPath = function (pth, toRel) {
         letter = 'L';
       }
       // Convert to "line" for easier editing
-      d += pathDSegment(letter, [[x, y]]);
+      d += pathDSegment(letter, [ [ x, y ] ]);
       break;
     case 2: // absolute move (M)
     case 4: // absolute line (L)
     case 18: // absolute smooth quad (T)
+    case 10: // absolute elliptical arc (A)
       x -= curx;
       y -= cury;
       // Fallthrough
@@ -689,9 +691,9 @@ export const convertPath = function (pth, toRel) {
         curx = x;
         cury = y;
       }
-      if (type === 2 || type === 3) { lastM = [curx, cury]; }
+      if (type === 2 || type === 3) { lastM = [ curx, cury ]; }
 
-      d += pathDSegment(letter, [[x, y]]);
+      d += pathDSegment(letter, [ [ x, y ] ]);
       break;
     case 6: // absolute cubic (C)
       x -= curx; x1 -= curx; x2 -= curx;
@@ -707,7 +709,7 @@ export const convertPath = function (pth, toRel) {
         curx = x;
         cury = y;
       }
-      d += pathDSegment(letter, [[x1, y1], [x2, y2], [x, y]]);
+      d += pathDSegment(letter, [ [ x1, y1 ], [ x2, y2 ], [ x, y ] ]);
       break;
     case 8: // absolute quad (Q)
       x -= curx; x1 -= curx;
@@ -723,12 +725,8 @@ export const convertPath = function (pth, toRel) {
         curx = x;
         cury = y;
       }
-      d += pathDSegment(letter, [[x1, y1], [x, y]]);
+      d += pathDSegment(letter, [ [ x1, y1 ], [ x, y ] ]);
       break;
-    // eslint-disable-next-line sonarjs/no-duplicated-branches
-    case 10: // absolute elliptical arc (A)
-      x -= curx;
-      y -= cury;
       // Fallthrough
     case 11: // relative elliptical arc (a)
       if (toRel) {
@@ -740,11 +738,11 @@ export const convertPath = function (pth, toRel) {
         curx = x;
         cury = y;
       }
-      d += pathDSegment(letter, [[seg.r1, seg.r2]], [
+      d += pathDSegment(letter, [ [ seg.r1, seg.r2 ] ], [
         seg.angle,
         (seg.largeArcFlag ? 1 : 0),
         (seg.sweepFlag ? 1 : 0)
-      ], [x, y]);
+      ], [ x, y ]);
       break;
     case 16: // absolute smooth cubic (S)
       x -= curx; x2 -= curx;
@@ -760,7 +758,7 @@ export const convertPath = function (pth, toRel) {
         curx = x;
         cury = y;
       }
-      d += pathDSegment(letter, [[x2, y2], [x, y]]);
+      d += pathDSegment(letter, [ [ x2, y2 ], [ x, y ] ]);
       break;
     } // switch on path segment type
   } // for each segment
@@ -777,7 +775,7 @@ export const convertPath = function (pth, toRel) {
  * @returns {string}
  */
 function pathDSegment (letter, points, morePoints, lastPoint) {
-  $.each(points, function (i, pnt) {
+  points.forEach(function(pnt, i){
     points[i] = shortFloat(pnt);
   });
   let segment = letter + points.join(' ');

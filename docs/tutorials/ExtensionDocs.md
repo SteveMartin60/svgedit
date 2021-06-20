@@ -27,7 +27,7 @@ This is the general format for an extension:
 ```js
 export default {
   name: 'extensionname',
-  init (methods) {
+  init (_methods) {
     return extensionData;
   }
 };
@@ -79,11 +79,11 @@ export default {
   init () {
     return {
       svgicons: 'extensions/helloworld-icon.xml',
-      buttons: [{ /* ... */ }],
+      buttons: [ { /* ... */ } ],
       mouseDown () {
         // ...
       },
-      mouseUp (opts) {
+      mouseUp (_opts) {
         // ...
       }
     };
@@ -139,19 +139,19 @@ property should follow the format
 naming conflicts in the non-modular version of SVGEdit.
 
 ```js
-import {importSetGlobalDefault} from '../external/dynamic-import-polyfill/importModule.js';
+import { importSetGlobalDefault } from '../external/dynamic-import-polyfill/importModule.js';
 
 // ...
 
 (async () => {
 
-const url = `${svgEditor.curConfig.extPath}ext-locale/<extNameWithoutExtPrefix>/<lang>.js`;
-const localeStrings = await importSetGlobalDefault(url, {
-  global: 'svgEditorExtensionLocale_imagelib_' + lang
-});
+  const url = `${svgEditor.curConfig.extPath}ext-locale/<extNameWithoutExtPrefix>/<lang>.js`;
+  const localeStrings = await importSetGlobalDefault(url, {
+    global: 'svgEditorExtensionLocale_imagelib_' + lang
+  });
 
-// Use `localeStrings`
-console.log(localeStrings);
+  // Use `localeStrings`
+  console.info(localeStrings);
 
 })();
 ```

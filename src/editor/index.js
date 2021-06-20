@@ -4,9 +4,10 @@ For default config and extensions (and available options) available to
 `setConfig()`, see the file `docs/tutorials/ConfigOptions.md`
 */
 
-import './jquery.min.js';
-import './jquery-ui/jquery-ui-1.8.17.custom.min.js';
-import svgEditor from './svgedit.js';
+import Editor from './Editor.js';
+
+const svgEditor = new Editor();
+svgEditor.init();
 
 // URL OVERRIDE CONFIG
 svgEditor.setConfig({
@@ -29,7 +30,7 @@ svgEditor.setConfig(
     //   other config options have already explicitly prevented one or the
     //   other)
   },
-  {allowInitialUserOverride: true}
+  { allowInitialUserOverride: true }
 );
 
 // EXTENSION CONFIG
@@ -56,7 +57,6 @@ svgEditor.setConfig({
   //   opacity: 1
   // },
   // initOpacity: 1,
-  // colorPickerCSS: null,
   // initTool: 'select',
   // exportWindowType: 'new', // 'same'
   // wireframe: false,
@@ -114,7 +114,6 @@ svgEditor.setConfig({
   // lang: '',
   // Will default to 's' if the window height is smaller than the minimum
   //  height and 'm' otherwise
-  // iconsize: '',
   /**
   * When showing the preferences dialog, svg-editor.js currently relies
   * on `curPrefs` instead of `svgEditor.pref`, so allowing an override for
@@ -136,10 +135,8 @@ try { // try clause to avoid js to complain if XDOMAIN undefined
   if (XDOMAIN) {
     svgEditor.setConfig({
       canvasName: 'xdomain', // Namespace this
-      allowedOrigins: ['*']
+      allowedOrigins: [ '*' ]
     });
-    // eslint-disable-next-line no-console
     console.info('xdomain config activated');
   }
-} catch (error) {
-}
+} catch (error) {/* empty fn */}

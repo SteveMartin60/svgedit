@@ -1,4 +1,3 @@
-/* globals jQuery */
 /**
  * Tools for SVG selected element operation.
  * @module selected-elem
@@ -6,31 +5,31 @@
  *
  * @copyright 2010 Alexis Deveria, 2010 Jeff Schiller
  */
-import jQueryPluginSVG from '../common/jQuery.attr.js'; // Needed for SVG attribute
-import {NS} from '../common/namespaces.js';
+
+import { NS } from '../common/namespaces.js';
 import * as hstry from './history.js';
 import * as pathModule from './path.js';
 import {
   isNullish, getStrokedBBoxDefaultVisible, setHref, getElem, getHref, getVisibleElements,
-  findDefs, getRotationAngle, getRefElem, getBBox as utilsGetBBox, walkTreePost, assignAttributes
-} from '../common/utilities.js';
+  findDefs, getRotationAngle, getRefElem, getBBox as utilsGetBBox, walkTreePost, assignAttributes, getFeGaussianBlur
+} from './utilities.js';
 import {
   transformPoint, matrixMultiply, transformListToTransform
-} from '../common/math.js';
+} from './math.js';
 import {
   getTransformList
-} from '../common/svgtransformlist.js';
+} from './svgtransformlist.js';
 import {
   recalculateDimensions
 } from './recalculate.js';
 import {
   isGecko
 } from '../common/browser.js'; // , supportsEditableText
+import { getParents } from '../editor/components/jgraduate/Util.js';
 
 const {
   MoveElementCommand, BatchCommand, InsertElementCommand, RemoveElementCommand, ChangeElementCommand
 } = hstry;
-const $ = jQueryPluginSVG(jQuery);
 
 let elementContext_ = null;
 
@@ -51,17 +50,17 @@ export const init = function (elementContext) {
 * @returns {void}
 */
 export const moveToTopSelectedElem = function () {
-  const [selected] = elementContext_.getSelectedElements();
+  const [ selected ] = elementContext_.getSelectedElements();
   if (!isNullish(selected)) {
-    let t = selected;
+    const t = selected;
     const oldParent = t.parentNode;
     const oldNextSibling = t.nextSibling;
-    t = t.parentNode.appendChild(t);
+    t.parentNode.append(t);
     // If the element actually moved position, add the command and fire the changed
     // event handler.
     if (oldNextSibling !== t.nextSibling) {
       elementContext_.addCommandToHistory(new MoveElementCommand(t, oldNextSibling, oldParent, 'top'));
-      elementContext_.call('changed', [t]);
+      elementContext_.call('changed', [ t ]);
     }
   }
 };
@@ -74,12 +73,12 @@ export const moveToTopSelectedElem = function () {
 * @returns {void}
 */
 export const moveToBottomSelectedElem = function () {
-  const [selected] = elementContext_.getSelectedElements();
+  const [ selected ] = elementContext_.getSelectedElements();
   if (!isNullish(selected)) {
     let t = selected;
     const oldParent = t.parentNode;
     const oldNextSibling = t.nextSibling;
-    let {firstChild} = t.parentNode;
+    let { firstChild } = t.parentNode;
     if (firstChild.tagName === 'title') {
       firstChild = firstChild.nextSibling;
     }
@@ -93,7 +92,7 @@ export const moveToBottomSelectedElem = function () {
     // event handler.
     if (oldNextSibling !== t.nextSibling) {
       elementContext_.addCommandToHistory(new MoveElementCommand(t, oldNextSibling, oldParent, 'bottom'));
-      elementContext_.call('changed', [t]);
+      elementContext_.call('changed', [ t ]);
     }
   }
 };
@@ -113,19 +112,19 @@ export const moveUpDownSelected = function (dir) {
 
   elementContext_.setCurBBoxes([]);
   // curBBoxes = [];
-  let closest, foundCur;
+  let closest; let foundCur;
   // jQuery sorts this list
-  const list = $(elementContext_.getIntersectionList(getStrokedBBoxDefaultVisible([selected]))).toArray();
+  const list = elementContext_.getIntersectionList(getStrokedBBoxDefaultVisible([ selected ]));
   if (dir === 'Down') { list.reverse(); }
 
-  $.each(list, function () {
+  Array.prototype.forEach.call(list, function (el) {
     if (!foundCur) {
-      if (this === selected) {
+      if (el === selected) {
         foundCur = true;
       }
       return true;
     }
-    closest = this;
+    closest = el;
     return false;
   });
   if (!closest) { return; }
@@ -133,12 +132,16 @@ export const moveUpDownSelected = function (dir) {
   const t = selected;
   const oldParent = t.parentNode;
   const oldNextSibling = t.nextSibling;
-  $(closest)[dir === 'Down' ? 'before' : 'after'](t);
+  if (dir === 'Down') {
+    closest.insertAdjacentElement('beforebegin', t);
+  } else {
+    closest.insertAdjacentElement('afterend', t);
+  }
   // If the element actually moved position, add the command and fire the changed
   // event handler.
   if (oldNextSibling !== t.nextSibling) {
     elementContext_.addCommandToHistory(new MoveElementCommand(t, oldNextSibling, oldParent, 'Move ' + dir));
-    elementContext_.call('changed', [t]);
+    elementContext_.call('changed', [ t ]);
   }
 };
 
@@ -227,18 +230,28 @@ export const moveSelectedElements = function (dx, dy, undoable) {
 export const cloneSelectedElements = function (x, y) {
   const selectedElements = elementContext_.getSelectedElements();
   const currentGroup = elementContext_.getCurrentGroup();
-  let i, elem;
+  let i; let elem;
   const batchCmd = new BatchCommand('Clone Elements');
   // find all the elements selected (stop at first null)
   const len = selectedElements.length;
+
+  function index(el) {
+    if (!el) return -1;
+    let i = 0;
+    do {
+      i++;
+    } while (el == el.previousElementSibling);
+    return i;
+  }
+
   /**
 * Sorts an array numerically and ascending.
 * @param {Element} a
 * @param {Element} b
 * @returns {Integer}
 */
-  function sortfunction (a, b) {
-    return ($(b).index() - $(a).index());
+  function sortfunction(a, b) {
+    return (index(b) - index(a));
   }
   selectedElements.sort(sortfunction);
   for (i = 0; i < len; ++i) {
@@ -247,7 +260,7 @@ export const cloneSelectedElements = function (x, y) {
   }
   // use slice to quickly get the subset of elements we need
   const copiedElements = selectedElements.slice(0, i);
-  this.clearSelection(true);
+  elementContext_.clearSelection(true);
   // note that we loop in the reverse way because of the way elements are added
   // to the selectedElements array (top-first)
   const drawing = elementContext_.getDrawing();
@@ -277,21 +290,21 @@ export const alignSelectedElements = function (type, relativeTo) {
   const bboxes = []; // angles = [];
   const len = selectedElements.length;
   if (!len) { return; }
-  let minx = Number.MAX_VALUE, maxx = Number.MIN_VALUE,
-    miny = Number.MAX_VALUE, maxy = Number.MIN_VALUE;
-  let curwidth = Number.MIN_VALUE, curheight = Number.MIN_VALUE;
+  let minx = Number.MAX_VALUE; let maxx = Number.MIN_VALUE;
+  let miny = Number.MAX_VALUE; let maxy = Number.MIN_VALUE;
+  let curwidth = Number.MIN_VALUE; let curheight = Number.MIN_VALUE;
   for (let i = 0; i < len; ++i) {
     if (isNullish(selectedElements[i])) { break; }
     const elem = selectedElements[i];
-    bboxes[i] = getStrokedBBoxDefaultVisible([elem]);
+    bboxes[i] = getStrokedBBoxDefaultVisible([ elem ]);
 
     // now bbox is axis-aligned and handles rotation
     switch (relativeTo) {
     case 'smallest':
-      if (((type === 'l' || type === 'c' || type === 'r') &&
-    (curwidth === Number.MIN_VALUE || curwidth > bboxes[i].width)) ||
-    ((type === 't' || type === 'm' || type === 'b') &&
-    (curheight === Number.MIN_VALUE || curheight > bboxes[i].height))
+      if (((type === 'l' || type === 'c' || type === 'r' || type === 'left' || type === 'center' || type === 'right') &&
+          (curwidth === Number.MIN_VALUE || curwidth > bboxes[i].width)) ||
+          ((type === 't' || type === 'm' || type === 'b' || type === 'top' || type === 'middle' || type === 'bottom') &&
+            (curheight === Number.MIN_VALUE || curheight > bboxes[i].height))
       ) {
         minx = bboxes[i].x;
         miny = bboxes[i].y;
@@ -302,10 +315,10 @@ export const alignSelectedElements = function (type, relativeTo) {
       }
       break;
     case 'largest':
-      if (((type === 'l' || type === 'c' || type === 'r') &&
-    (curwidth === Number.MIN_VALUE || curwidth < bboxes[i].width)) ||
-    ((type === 't' || type === 'm' || type === 'b') &&
-    (curheight === Number.MIN_VALUE || curheight < bboxes[i].height))
+      if (((type === 'l' || type === 'c' || type === 'r' || type === 'left' || type === 'center' || type === 'right') &&
+          (curwidth === Number.MIN_VALUE || curwidth < bboxes[i].width)) ||
+          ((type === 't' || type === 'm' || type === 'b' || type === 'top' || type === 'middle' || type === 'bottom') &&
+            (curheight === Number.MIN_VALUE || curheight < bboxes[i].height))
       ) {
         minx = bboxes[i].x;
         miny = bboxes[i].y;
@@ -341,21 +354,27 @@ export const alignSelectedElements = function (type, relativeTo) {
     dy[i] = 0;
     switch (type) {
     case 'l': // left (horizontal)
+    case 'left': // left (horizontal)
       dx[i] = minx - bbox.x;
       break;
     case 'c': // center (horizontal)
+    case 'center': // center (horizontal)
       dx[i] = (minx + maxx) / 2 - (bbox.x + bbox.width / 2);
       break;
     case 'r': // right (horizontal)
+    case 'right': // right (horizontal)
       dx[i] = maxx - (bbox.x + bbox.width);
       break;
     case 't': // top (vertical)
+    case 'top': // top (vertical)
       dy[i] = miny - bbox.y;
       break;
     case 'm': // middle (vertical)
+    case 'middle': // middle (vertical)
       dy[i] = (miny + maxy) / 2 - (bbox.y + bbox.height / 2);
       break;
     case 'b': // bottom (vertical)
+    case 'bottom': // bottom (vertical)
       dy[i] = maxy - (bbox.y + bbox.height);
       break;
     }
@@ -395,7 +414,7 @@ export const deleteSelectedElements = function () {
       parent = parent.parentNode;
     }
 
-    const {nextSibling} = t;
+    const { nextSibling } = t;
     t.remove();
     const elem = t;
     selectedCopy.push(selected); // for the copy
@@ -416,16 +435,14 @@ export const deleteSelectedElements = function () {
 export const copySelectedElements = function () {
   const selectedElements = elementContext_.getSelectedElements();
   const data =
-  JSON.stringify(selectedElements.map((x) => elementContext_.getJsonFromSvgElement(x)));
+    JSON.stringify(selectedElements.map((x) => elementContext_.getJsonFromSvgElement(x)));
   // Use sessionStorage for the clipboard data.
   sessionStorage.setItem(elementContext_.getClipboardID(), data);
   elementContext_.flashStorage();
 
-  const menu = $('#cmenu_canvas');
   // Context menu might not exist (it is provided by editor.js).
-  if (menu.enableContextMenuItems) {
-    menu.enableContextMenuItems('#paste,#paste_in_place');
-  }
+  const canvMenu = document.getElementById('se-cmenu_canvas');
+  canvMenu.setAttribute('enablemenuitems', '#paste,#paste_in_place');
 };
 
 /**
@@ -441,6 +458,7 @@ export const groupSelectedElements = function (type, urlArg) {
   let cmdStr = '';
   let url;
 
+  // eslint-disable-next-line sonarjs/no-small-switch
   switch (type) {
   case 'a': {
     cmdStr = 'Make hyperlink';
@@ -485,7 +503,7 @@ export const groupSelectedElements = function (type, urlArg) {
   if (!batchCmd.isEmpty()) { elementContext_.addCommandToHistory(batchCmd); }
 
   // update selection
-  elementContext_.selectOnly([g], true);
+  elementContext_.selectOnly([ g ], true);
 };
 
 /**
@@ -515,8 +533,11 @@ export const pushGroupProperty = function (g, undoable) {
 
   const gangle = getRotationAngle(g);
 
-  const gattrs = $(g).attr(['filter', 'opacity']);
-  let gfilter, gblur, changes;
+  const gattrs = {
+    filter: g.getAttribute('filter'),
+    opacity: g.getAttribute('opacity')
+  };
+  let gfilter; let gblur; let changes;
   const drawing = elementContext_.getDrawing();
 
   for (let i = 0; i < len; i++) {
@@ -527,13 +548,13 @@ export const pushGroupProperty = function (g, undoable) {
     if (gattrs.opacity !== null && gattrs.opacity !== 1) {
       // const c_opac = elem.getAttribute('opacity') || 1;
       const newOpac = Math.round((elem.getAttribute('opacity') || 1) * gattrs.opacity * 100) / 100;
-      elementContext_.changeSelectedAttribute('opacity', newOpac, [elem]);
+      elementContext_.changeSelectedAttribute('opacity', newOpac, [ elem ]);
     }
 
     if (gattrs.filter) {
-      let cblur = this.getBlur(elem);
+      let cblur = elementContext_.getCanvas().getBlur(elem);
       const origCblur = cblur;
-      if (!gblur) { gblur = this.getBlur(g); }
+      if (!gblur) { gblur = elementContext_.getCanvas().getBlur(g); }
       if (cblur) {
         // Is this formula correct?
         cblur = Number(gblur) + Number(cblur);
@@ -554,15 +575,16 @@ export const pushGroupProperty = function (g, undoable) {
       } else {
         gfilter = getRefElem(elem.getAttribute('filter'));
       }
-
+      // const filterElem = getRefElem(gfilter);
+      const blurElem = getFeGaussianBlur(gfilter);
       // Change this in future for different filters
-      const suffix = (gfilter.firstChild.tagName === 'feGaussianBlur') ? 'blur' : 'filter';
+      const suffix = (blurElem?.tagName === 'feGaussianBlur') ? 'blur' : 'filter';
       gfilter.id = elem.id + '_' + suffix;
-      elementContext_.changeSelectedAttribute('filter', 'url(#' + gfilter.id + ')', [elem]);
+      elementContext_.changeSelectedAttribute('filter', 'url(#' + gfilter.id + ')', [ elem ]);
 
       // Update blur value
       if (cblur) {
-        elementContext_.changeSelectedAttribute('stdDeviation', cblur, [gfilter.firstChild]);
+        elementContext_.changeSelectedAttribute('stdDeviation', cblur, [ blurElem ]);
         elementContext_.getCanvas().setBlurOffsets(gfilter, cblur);
       }
     }
@@ -650,8 +672,8 @@ export const pushGroupProperty = function (g, undoable) {
 
         // [ gm ] [ chm ] = [ chm ] [ gm' ]
         // [ gm' ] = [ chmInv ] [ gm ] [ chm ]
-        const chm = transformListToTransform(chtlist).matrix,
-          chmInv = chm.inverse();
+        const chm = transformListToTransform(chtlist).matrix;
+        const chmInv = chm.inverse();
         const gm = matrixMultiply(chmInv, m, chm);
         newxform.setMatrix(gm);
         chtlist.appendItem(newxform);
@@ -688,29 +710,40 @@ export const convertToGroup = function (elem) {
   if (!elem) {
     elem = selectedElements[0];
   }
-  const $elem = $(elem);
+  const $elem = elem;
   const batchCmd = new BatchCommand();
   let ts;
-
-  if ($elem.data('gsvg')) {
+  const dataStorage = elementContext_.getDataStorage();
+  if (dataStorage.has($elem, 'gsvg')) {
     // Use the gsvg as the new group
     const svg = elem.firstChild;
-    const pt = $(svg).attr(['x', 'y']);
+    const pt = {
+      x: svg.getAttribute('x'),
+      y: svg.getAttribute('y')
+    };
 
-    $(elem.firstChild.firstChild).unwrap();
-    $(elem).removeData('gsvg');
+    // $(elem.firstChild.firstChild).unwrap();
+    const firstChild = elem.firstChild.firstChild;
+    if (firstChild) {
+      // eslint-disable-next-line no-unsanitized/property
+      firstChild.outerHTML = firstChild.innerHTML;
+    }
+    dataStorage.remove(elem, 'gsvg');
 
     const tlist = getTransformList(elem);
     const xform = elementContext_.getSVGRoot().createSVGTransform();
     xform.setTranslate(pt.x, pt.y);
     tlist.appendItem(xform);
     recalculateDimensions(elem);
-    elementContext_.call('selected', [elem]);
-  } else if ($elem.data('symbol')) {
-    elem = $elem.data('symbol');
+    elementContext_.call('selected', [ elem ]);
+  } else if (dataStorage.has($elem, 'symbol')) {
+    elem = dataStorage.get($elem, 'symbol');
 
-    ts = $elem.attr('transform');
-    const pos = $elem.attr(['x', 'y']);
+    ts = $elem.getAttribute('transform');
+    const pos = {
+      x: $elem.getAttribute('x'),
+      y: $elem.getAttribute('y')
+    };
 
     const vb = elem.getAttribute('viewBox');
 
@@ -731,7 +764,7 @@ export const convertToGroup = function (elem) {
 
     // See if other elements reference this symbol
     const svgcontent = elementContext_.getSVGContent();
-    const hasMore = $(svgcontent).find('use:data(symbol)').length;
+    const hasMore = svgcontent.querySelectorAll('use:data(symbol)').length;
 
     const g = elementContext_.getDOMDocument().createElementNS(NS.SVG, 'g');
     const childs = elem.childNodes;
@@ -743,8 +776,11 @@ export const convertToGroup = function (elem) {
 
     // Duplicate the gradients for Gecko, since they weren't included in the <symbol>
     if (isGecko()) {
-      const dupeGrads = $(findDefs()).children('linearGradient,radialGradient,pattern').clone();
-      $(g).append(dupeGrads);
+      const svgElement = findDefs();
+      const gradients = svgElement.querySelectorAll('linearGradient,radialGradient,pattern');
+      for (let i = 0, im = gradients.length; im > i; i++) {
+        g.appendChild(gradients[i].cloneNode(true));
+      }
     }
 
     if (ts) {
@@ -757,7 +793,11 @@ export const convertToGroup = function (elem) {
 
     // Put the dupe gradients back into <defs> (after uniquifying them)
     if (isGecko()) {
-      $(findDefs()).append($(g).find('linearGradient,radialGradient,pattern'));
+      const svgElement = findDefs();
+      const elements = g.querySelectorAll('linearGradient,radialGradient,pattern');
+      for (let i = 0, im = elements.length; im > i; i++) {
+        svgElement.appendChild(elements[i]);
+      }
     }
 
     // now give the g itself a new id
@@ -768,7 +808,7 @@ export const convertToGroup = function (elem) {
     if (parent) {
       if (!hasMore) {
         // remove symbol/svg element
-        const {nextSibling} = elem;
+        const { nextSibling } = elem;
         elem.remove();
         batchCmd.addSubCommand(new RemoveElementCommand(elem, nextSibling, parent));
       }
@@ -789,17 +829,17 @@ export const convertToGroup = function (elem) {
       try {
         recalculateDimensions(n);
       } catch (e) {
-        console.log(e); // eslint-disable-line no-console
+        console.error(e);
       }
     });
 
     // Give ID for any visible element missing one
-    const visElems = elementContext_.getVisElems();
-    $(g).find(visElems).each(function () {
-      if (!this.id) { this.id = elementContext_.getNextId(); }
+    const visElems = g.querySelectorAll(elementContext_.getVisElems());
+    Array.prototype.forEach.call(visElems, function (el) {
+      if (!el.id) { el.id = elementContext_.getNextId(); }
     });
 
-    elementContext_.selectOnly([g]);
+    elementContext_.selectOnly([ g ]);
 
     const cm = pushGroupProperty(g, true);
     if (cm) {
@@ -808,7 +848,7 @@ export const convertToGroup = function (elem) {
 
     elementContext_.addCommandToHistory(batchCmd);
   } else {
-    console.log('Unexpected element to ungroup:', elem); // eslint-disable-line no-console
+    console.warn('Unexpected element to ungroup:', elem);
   }
 };
 
@@ -820,11 +860,12 @@ export const convertToGroup = function (elem) {
 */
 export const ungroupSelectedElement = function () {
   const selectedElements = elementContext_.getSelectedElements();
+  const dataStorage = elementContext_.getDataStorage();
   let g = selectedElements[0];
   if (!g) {
     return;
   }
-  if ($(g).data('gsvg') || $(g).data('symbol')) {
+  if (dataStorage.has(g, 'gsvg') || dataStorage.has(g, 'symbol')) {
     // Is svg, so actually convert to group
     convertToGroup(g);
     return;
@@ -832,12 +873,13 @@ export const ungroupSelectedElement = function () {
   if (g.tagName === 'use') {
     // Somehow doesn't have data set, so retrieve
     const symbol = getElem(getHref(g).substr(1));
-    $(g).data('symbol', symbol).data('ref', symbol);
+    dataStorage.put(g, 'symbol', symbol);
+    dataStorage.put(g, 'ref', symbol);
     convertToGroup(g);
     return;
   }
-  const parentsA = $(g).parents('a');
-  if (parentsA.length) {
+  const parentsA = getParents(g.parentNode, 'a');
+  if (parentsA?.length) {
     g = parentsA[0];
   }
 
@@ -859,7 +901,7 @@ export const ungroupSelectedElement = function () {
 
       // Remove child title elements
       if (elem.tagName === 'title') {
-        const {nextSibling} = elem;
+        const { nextSibling } = elem;
         batchCmd.addSubCommand(new RemoveElementCommand(elem, nextSibling, oldParent));
         elem.remove();
         continue;
@@ -900,7 +942,7 @@ export const updateCanvas = function (w, h) {
   elementContext_.getSVGRoot().setAttribute('width', w);
   elementContext_.getSVGRoot().setAttribute('height', h);
   const currentZoom = elementContext_.getCurrentZoom();
-  const bg = $('#canvasBackground')[0];
+  const bg = document.getElementById('canvasBackground');
   const oldX = elementContext_.getSVGContent().getAttribute('x');
   const oldY = elementContext_.getSVGContent().getAttribute('y');
   const x = ((w - this.contentW * currentZoom) / 2);
@@ -947,9 +989,9 @@ export const updateCanvas = function (w, h) {
     /**
  * @type {module:svgcanvas.SvgCanvas#event:ext_canvasUpdated}
  */
-    {new_x: x, new_y: y, old_x: oldX, old_y: oldY, d_x: x - oldX, d_y: y - oldY}
+    { new_x: x, new_y: y, old_x: oldX, old_y: oldY, d_x: x - oldX, d_y: y - oldY }
   );
-  return {x, y, old_x: oldX, old_y: oldY, d_x: x - oldX, d_y: y - oldY};
+  return { x, y, old_x: oldX, old_y: oldY, d_x: x - oldX, d_y: y - oldY };
 };
 /**
 * Select the next/previous element within the current layer.
@@ -984,6 +1026,6 @@ export const cycleElement = function (next) {
       }
     }
   }
-  elementContext_.getCanvas().selectOnly([elem], true);
+  elementContext_.getCanvas().selectOnly([ elem ], true);
   elementContext_.call('selected', selectedElements);
 };

@@ -1,4 +1,3 @@
-import '../../../instrumented/editor/jquery.min.js';
 import * as contextmenu from '../../../instrumented/editor/contextmenu.js';
 
 describe('contextmenu', function () {
@@ -19,26 +18,26 @@ describe('contextmenu', function () {
 
   it('Test svgedit.contextmenu does not add invalid menu item', function () {
     assert.throws(
-      () => contextmenu.add({id: 'justanid'}),
+      () => contextmenu.add({ id: 'justanid' }),
       null, null,
       'menu item with just an id is invalid'
     );
 
     assert.throws(
-      () => contextmenu.add({id: 'idandlabel', label: 'anicelabel'}),
+      () => contextmenu.add({ id: 'idandlabel', label: 'anicelabel' }),
       null, null,
       'menu item with just an id and label is invalid'
     );
 
     assert.throws(
-      () => contextmenu.add({id: 'idandlabel', label: 'anicelabel', action: 'notafunction'}),
+      () => contextmenu.add({ id: 'idandlabel', label: 'anicelabel', action: 'notafunction' }),
       null, null,
       'menu item with action that is not a function is invalid'
     );
   });
 
   it('Test svgedit.contextmenu adds valid menu item', function () {
-    const validItem = {id: 'valid', label: 'anicelabel', action () { /* empty fn */ }};
+    const validItem = { id: 'valid', label: 'anicelabel', action () { /* empty fn */ } };
     contextmenu.add(validItem);
 
     assert.ok(contextmenu.hasCustomHandler('valid'), 'Valid menu item is added.');
@@ -46,8 +45,8 @@ describe('contextmenu', function () {
   });
 
   it('Test svgedit.contextmenu rejects valid duplicate menu item id', function () {
-    const validItem1 = {id: 'valid', label: 'anicelabel', action () { /* empty fn */ }};
-    const validItem2 = {id: 'valid', label: 'anicelabel', action () { /* empty fn */ }};
+    const validItem1 = { id: 'valid', label: 'anicelabel', action () { /* empty fn */ } };
+    const validItem2 = { id: 'valid', label: 'anicelabel', action () { /* empty fn */ } };
     contextmenu.add(validItem1);
 
     assert.throws(

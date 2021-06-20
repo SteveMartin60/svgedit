@@ -1,12 +1,8 @@
-/* eslint-disable no-console -- mocha script can use the console */
 // Filed the following to support this file's functionality:
 //    https://github.com/cypress-io/cypress/issues/6585
 
 // Todo: Show /test (i.e., `unit.js`) test results at beginning?
 
-// See https://github.com/jsdoc/jsdoc/issues/1750 to create such tags
-/* eslint "jsdoc/check-tag-names": ["error", {definedTags: ["cli-arg"]}] --
-  we want a custom tag */
 /**
  * @file A CLI reporter against after-the-fact compiled (merged Mochawesome)
  * Mocha results.
@@ -23,13 +19,12 @@ const reporterFile = process.argv[2]
 
 const path = '../mochawesome.json';
 
-// eslint-disable-next-line import/no-dynamic-require -- Allow CLI to change
 const MochaReporter = require(`mocha/lib/reporters/${reporterFile}.js`);
 const Suite = require('mocha/lib/suite.js');
 const Test = require('mocha/lib/test.js');
 const Runner = require('mocha/lib/runner.js');
 
-const {constants: {
+const { constants: {
   EVENT_RUN_BEGIN,
   EVENT_RUN_END,
   EVENT_SUITE_BEGIN,
@@ -37,24 +32,22 @@ const {constants: {
   EVENT_TEST_FAIL,
   EVENT_TEST_PASS,
   EVENT_TEST_PENDING
-}} = require('mocha/lib/runner.js');
+} } = require('mocha/lib/runner.js');
 
-// eslint-disable-next-line max-len -- Won't let us make next line multiline
-// eslint-disable-next-line import/no-dynamic-require -- Not fixed now, but may allow changing
-const {results, stats} = require(path);
+const { results, stats } = require(path);
 
 const runner = new Runner(
   new Suite('', null, true)
 );
 runner.stats = stats;
 
-console.log('Mocha results:');
+console.info('Mocha results:');
 
 // eslint-disable-next-line no-new -- Has side effects
 new MochaReporter(runner);
 
 runner.emit(EVENT_RUN_BEGIN);
-results.forEach(({suites}) => {
+results.forEach(({ suites }) => {
   suites.forEach(function handleSuite (st) {
     const ste = Object.assign(new Suite(''), st);
 
@@ -67,7 +60,7 @@ results.forEach(({suites}) => {
       const tst = new Test('', () => {
         //
       });
-      Object.entries(ts).forEach(([k, v]) => {
+      Object.entries(ts).forEach(([ k, v ]) => {
         // `fullTitle` is a string in mochawesome but a function in Mocha
         if (k !== 'fullTitle') {
           tst[k] = v;
@@ -116,6 +109,6 @@ const lastRan = new Intl.DateTimeFormat('en-US', {
   hour: 'numeric', minute: 'numeric'
 }).format(endDate);
 
-console.log(
+console.info(
   `Tests finished: ${lastRan}`
 );

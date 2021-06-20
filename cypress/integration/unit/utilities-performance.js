@@ -1,14 +1,13 @@
-/* eslint-disable max-len */
+/* eslint-disable max-len, no-console */
 import 'pathseg';
-import '../../../instrumented/editor/jquery.min.js';
 
-import {NS} from '../../../instrumented/common/namespaces.js';
-import * as utilities from '../../../instrumented/common/utilities.js';
-import * as transformlist from '../../../instrumented/common/svgtransformlist.js';
-import * as math from '../../../instrumented/common/math.js';
+import { NS } from '../../../instrumented/common/namespaces.js';
+import * as utilities from '../../../instrumented/svgcanvas/utilities.js';
+import * as transformlist from '../../../instrumented/svgcanvas/svgtransformlist.js';
+import * as math from '../../../instrumented/svgcanvas/math.js';
 
 describe('utilities performance', function () {
-  let currentLayer, groupWithMatrixTransform, textWithMatrixTransform;
+  let currentLayer; let groupWithMatrixTransform; let textWithMatrixTransform;
   beforeEach(() => {
     document.body.textContent = '';
     const style = document.createElement('style');
@@ -82,7 +81,7 @@ describe('utilities performance', function () {
    */
   function mockCreateSVGElement (jsonMap) {
     const elem = document.createElementNS(NS.SVG, jsonMap.element);
-    Object.entries(jsonMap.attr).forEach(([attr, value]) => {
+    Object.entries(jsonMap.attr).forEach(([ attr, value ]) => {
       elem.setAttribute(attr, value);
     });
     return elem;
@@ -111,7 +110,7 @@ describe('utilities performance', function () {
       const clone = elem.cloneNode(true); // t: deep clone
       // Make sure you set a unique ID like a real document.
       clone.setAttribute('id', elemId + index);
-      const {parentNode} = elem;
+      const { parentNode } = elem;
       parentNode.append(clone);
     }
   }
@@ -135,9 +134,9 @@ describe('utilities performance', function () {
           continue;
         }
         const pts = [];
-        ['', 1, 2].forEach(function (n, j) {
-          const x = seg['x' + n],
-            y = seg['y' + n];
+        [ '', 1, 2 ].forEach(function (n) {
+          const x = seg['x' + n];
+          const y = seg['y' + n];
           if (x !== undefined && y !== undefined) {
             const pt = math.transformPoint(x, y, m);
             pts.splice(pts.length, 0, pt.x, pt.y);
@@ -183,13 +182,13 @@ describe('utilities performance', function () {
   //   Pass2 svgCanvas.getStrokedBBox total ms    17, ave ms 0.2,   min/max 0 23
 
   it('Test svgCanvas.getStrokedBBox() performance with matrix transforms', function () {
-    const {getStrokedBBox} = utilities;
-    const {children} = currentLayer;
+    const { getStrokedBBox } = utilities;
+    const { children } = currentLayer;
 
-    let lastTime, now,
-      min = Number.MAX_VALUE,
-      max = 0,
-      total = 0;
+    let lastTime; let now;
+    let min = Number.MAX_VALUE;
+    let max = 0;
+    let total = 0;
 
     fillDocumentByCloningElement(groupWithMatrixTransform, 50);
     fillDocumentByCloningElement(textWithMatrixTransform, 50);
@@ -200,7 +199,7 @@ describe('utilities performance', function () {
     // Skip the first child which is the title.
     for (let index = 1; index < count; index++) {
       const child = children[index];
-      /* const obj = */ getStrokedBBox([child], mockaddSVGElementFromJson, mockPathActions);
+      /* const obj = */ getStrokedBBox([ child ], mockaddSVGElementFromJson, mockPathActions);
       now = Date.now(); const delta = now - lastTime; lastTime = now;
       total += delta;
       min = Math.min(min, delta);
@@ -211,7 +210,6 @@ describe('utilities performance', function () {
     assert.isBelow(ave, 20, 'svgedit.utilities.getStrokedBBox average execution time is less than 20 ms');
     console.log('Pass1 svgCanvas.getStrokedBBox total ms ' + total + ', ave ms ' + ave.toFixed(1) + ',\t min/max ' + min + ' ' + max);
 
-    // eslint-disable-next-line promise/avoid-new
     return new Promise((resolve) => {
       // The second pass is two to ten times faster.
       setTimeout(function () {
@@ -221,7 +219,7 @@ describe('utilities performance', function () {
         // Skip the first child which is the title.
         for (let index = 1; index < ct; index++) {
           const child = children[index];
-          /* const obj = */ getStrokedBBox([child], mockaddSVGElementFromJson, mockPathActions);
+          /* const obj = */ getStrokedBBox([ child ], mockaddSVGElementFromJson, mockPathActions);
           now = Date.now(); const delta = now - lastTime; lastTime = now;
           total += delta;
           min = Math.min(min, delta);

@@ -1,12 +1,7 @@
-/* globals jQuery */
-
-import jQueryPluginSVG from '../common/jQuery.attr.js'; // Needed for SVG attribute setting and array form with `attr`
 import {
   getStrokedBBoxDefaultVisible
-} from '../common/utilities.js';
+} from './utilities.js';
 import * as hstry from './history.js';
-// Constants
-const $ = jQueryPluginSVG(jQuery);
 
 const {
   InsertElementCommand, BatchCommand
@@ -75,7 +70,7 @@ export const pasteElementsMethod = function (type, x, y) {
   pasteContext_.getCanvas().runExtensions(
     'IDsUpdated',
     /** @type {module:svgcanvas.SvgCanvas#event:ext_IDsUpdated} */
-    {elems: clipb, changes: changedIDs},
+    { elems: clipb, changes: changedIDs },
     true
   ).forEach(function (extChanges) {
     if (!extChanges || !('remove' in extChanges)) return;
@@ -102,7 +97,7 @@ export const pasteElementsMethod = function (type, x, y) {
   pasteContext_.getCanvas().selectOnly(pasted);
 
   if (type !== 'in_place') {
-    let ctrX, ctrY;
+    let ctrX; let ctrY;
 
     if (!type) {
       ctrX = pasteContext_.getLastClickPoint('x');
@@ -113,12 +108,12 @@ export const pasteElementsMethod = function (type, x, y) {
     }
 
     const bbox = getStrokedBBoxDefaultVisible(pasted);
-    const cx = ctrX - (bbox.x + bbox.width / 2),
-      cy = ctrY - (bbox.y + bbox.height / 2),
-      dx = [],
-      dy = [];
+    const cx = ctrX - (bbox.x + bbox.width / 2);
+    const cy = ctrY - (bbox.y + bbox.height / 2);
+    const dx = [];
+    const dy = [];
 
-    $.each(pasted, function (i, item) {
+    pasted.forEach(function(_item){
       dx.push(cx);
       dy.push(cy);
     });

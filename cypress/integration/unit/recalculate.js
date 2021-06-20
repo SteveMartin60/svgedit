@@ -1,9 +1,8 @@
-import '../../../instrumented/editor/jquery.min.js';
-
-import {NS} from '../../../instrumented/common/namespaces.js';
-import * as utilities from '../../../instrumented/common/utilities.js';
+import { NS } from '../../../instrumented/common/namespaces.js';
+import * as utilities from '../../../instrumented/svgcanvas/utilities.js';
 import * as coords from '../../../instrumented/svgcanvas/coords.js';
 import * as recalculate from '../../../instrumented/svgcanvas/recalculate.js';
+
 
 describe('recalculate', function () {
   // eslint-disable-next-line no-shadow
@@ -17,21 +16,45 @@ describe('recalculate', function () {
   const svg = document.createElementNS(NS.SVG, 'svg');
   svgroot.append(svg);
 
+  const dataStorage = {
+    _storage: new WeakMap(),
+    put: function (element, key, obj) {
+      if (!this._storage.has(element)) {
+        this._storage.set(element, new Map());
+      }
+      this._storage.get(element).set(key, obj);
+    },
+    get: function (element, key) {
+      return this._storage.get(element).get(key);
+    },
+    has: function (element, key) {
+      return this._storage.has(element) && this._storage.get(element).has(key);
+    },
+    remove: function (element, key) {
+      const ret = this._storage.get(element).delete(key);
+      if (!this._storage.get(element).size === 0) {
+        this._storage.delete(element);
+      }
+      return ret;
+    }
+  };
+
   let elemId = 1;
 
   /**
    * Initilize modules to set up the tests.
    * @returns {void}
    */
-  function setUp () {
+  function setUp() {
     utilities.init(
       /**
       * @implements {module:utilities.EditorContext}
       */
       {
-        getSVGRoot () { return svg; },
-        getDOMDocument () { return null; },
-        getDOMContainer () { return null; }
+        getSVGRoot() { return svg; },
+        getDOMDocument() { return null; },
+        getDOMContainer() { return null; },
+        getDataStorage() { return dataStorage; }
       }
     );
     coords.init(
@@ -39,12 +62,13 @@ describe('recalculate', function () {
       * @implements {module:coords.EditorContext}
       */
       {
-        getGridSnapping () { return false; },
-        getDrawing () {
+        getGridSnapping() { return false; },
+        getDrawing() {
           return {
-            getNextId () { return String(elemId++); }
+            getNextId() { return String(elemId++); }
           };
-        }
+        },
+        getDataStorage() { return dataStorage; }
       }
     );
     recalculate.init(
@@ -52,9 +76,10 @@ describe('recalculate', function () {
       * @implements {module:recalculate.EditorContext}
       */
       {
-        getSVGRoot () { return svg; },
-        getStartTransform () { return ''; },
-        setStartTransform () { /* empty fn */ }
+        getSVGRoot() { return svg; },
+        getStartTransform() { return ''; },
+        setStartTransform() { /* empty fn */ },
+        getDataStorage() { return dataStorage; }
       }
     );
   }
@@ -65,7 +90,7 @@ describe('recalculate', function () {
    * Initialize for tests and set up `rect` element.
    * @returns {void}
    */
-  function setUpRect () {
+  function setUpRect() {
     setUp();
     elem = document.createElementNS(NS.SVG, 'rect');
     elem.setAttribute('x', '200');
@@ -79,7 +104,7 @@ describe('recalculate', function () {
    * Initialize for tests and set up `text` element with `tspan` child.
    * @returns {void}
    */
-  function setUpTextWithTspan () {
+  function setUpTextWithTspan() {
     setUp();
     elem = document.createElementNS(NS.SVG, 'text');
     elem.setAttribute('x', '200');

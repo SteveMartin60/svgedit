@@ -23,8 +23,8 @@ let cbid = 0;
 */
 function getCallbackSetter (funcName) {
   return function (...args) {
-    const that = this, // New callback
-      callbackID = this.send(funcName, args, function () { /* empty */ }); // The callback (currently it's nothing, but will be set later)
+    const that = this; // New callback
+    const callbackID = this.send(funcName, args, function () { /* empty fn */ }); // The callback (currently it's nothing, but will be set later)
 
     return function (newCallback) {
       that.callbacks[callbackID] = newCallback; // Set callback
@@ -43,7 +43,7 @@ function getCallbackSetter (funcName) {
 * @param {Integer} data.id
 * @returns {void}
 */
-function addCallback (t, {result, error, id: callbackID}) {
+function addCallback (t, { result, error, id: callbackID }) {
   if (typeof callbackID === 'number' && t.callbacks[callbackID]) {
     // These should be safe both because we check `cbid` is numeric and
     //   because the calls are from trusted origins
@@ -62,16 +62,15 @@ function addCallback (t, {result, error, id: callbackID}) {
 function messageListener (e) {
   // We accept and post strings as opposed to objects for the sake of IE9 support; this
   //   will most likely be changed in the future
-  if (!e.data || !['string', 'object'].includes(typeof e.data)) {
+  if (!e.data || ![ 'string', 'object' ].includes(typeof e.data)) {
     return;
   }
-  const {allowedOrigins} = this,
-    data = typeof e.data === 'object' ? e.data : JSON.parse(e.data);
+  const { allowedOrigins } = this;
+  const data = typeof e.data === 'object' ? e.data : JSON.parse(e.data);
   if (!data || typeof data !== 'object' || data.namespace !== 'svg-edit' ||
     e.source !== this.frame.contentWindow ||
     (!allowedOrigins.includes('*') && !allowedOrigins.includes(e.origin))
   ) {
-    // eslint-disable-next-line no-console -- Info for developers
     console.error(
       `The origin ${e.origin} was not whitelisted as an origin from ` +
       `which responses may be received by this ${window.origin} script.`
@@ -111,6 +110,7 @@ svgCanvas.setSvgString('string');
 svgCanvas.setSvgString('string')(function (data, error) {
      if (error) {
      // There was an error
+     throw error
      } else {
      // Handle data
      }
@@ -329,10 +329,10 @@ class EmbeddedSVGEdit {
     // Older IE may need a polyfill for addEventListener, but so it would for SVG
     window.addEventListener('message', getMessageListener(this));
     window.addEventListener('keydown', (e) => {
-      const {type, key} = e;
+      const { type, key } = e;
       if (key === 'Backspace') {
         e.preventDefault();
-        const keyboardEvent = new KeyboardEvent(type, {key});
+        const keyboardEvent = new KeyboardEvent(type, { key });
         that.frame.contentDocument.dispatchEvent(keyboardEvent);
       }
     });
@@ -344,7 +344,7 @@ class EmbeddedSVGEdit {
   * @param {GenericCallback} callback (This may be better than a promise in case adding an event.)
   * @returns {Integer}
   */
-  send (name, args, callback) { // eslint-disable-line promise/prefer-await-to-callbacks
+  send (name, args, callback) {
     const that = this;
     cbid++;
 
@@ -362,8 +362,8 @@ class EmbeddedSVGEdit {
         let sameOriginWithGlobal = false;
         try {
           sameOriginWithGlobal = window.location.origin === that.frame.contentWindow.location.origin &&
-            that.frame.contentWindow.svgEditor.canvas;
-        } catch (err) {}
+            that.frame.contentWindow.svgEditor.svgCanvas;
+        }catch (err) {/* empty */}
 
         if (sameOriginWithGlobal) {
           // Although we do not really need this API if we are working same
@@ -372,8 +372,8 @@ class EmbeddedSVGEdit {
           //  of the current JSON-based communication API (e.g., not passing
           //  callbacks). We might be able to address these shortcomings; see
           //  the todo elsewhere in this file.
-          const message = {id: callbackID},
-            {svgEditor: {canvas: svgCanvas}} = that.frame.contentWindow;
+          const message = { id: callbackID };
+          const { svgEditor: { canvas: svgCanvas } } = that.frame.contentWindow;
           try {
             message.result = svgCanvas[name](...args);
           } catch (err) {

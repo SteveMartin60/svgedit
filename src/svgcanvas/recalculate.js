@@ -1,24 +1,23 @@
-/* globals jQuery */
 /**
  * Recalculate.
  * @module recalculate
  * @license MIT
  */
 
-import jQueryPluginSVG from '../common/jQuery.attr.js'; // Needed for SVG attribute setting and array form with `attr`
-import {NS} from '../common/namespaces.js';
-import {convertToNum} from '../common/units.js';
-import {isWebkit} from '../common/browser.js';
-import {getTransformList} from '../common/svgtransformlist.js';
-import {getRotationAngle, getHref, getBBox, getRefElem, isNullish} from '../common/utilities.js';
-import {BatchCommand, ChangeElementCommand} from './history.js';
-import {remapElement} from './coords.js';
+import { NS } from '../common/namespaces.js';
+import { convertToNum } from '../common/units.js';
+import { isWebkit } from '../common/browser.js';
+import { getTransformList } from './svgtransformlist.js';
+import { getRotationAngle, getHref, getBBox, getRefElem, isNullish } from './utilities.js';
+import { BatchCommand, ChangeElementCommand } from './history.js';
+import { remapElement } from './coords.js';
 import {
   isIdentity, matrixMultiply, transformPoint, transformListToTransform,
   hasMatrixTransform
-} from '../common/math.js';
-
-const $ = jQueryPluginSVG(jQuery);
+} from './math.js';
+import {
+  mergeDeep
+} from '../editor/components/jgraduate/Util.js';
 
 let context_;
 
@@ -83,6 +82,7 @@ export const recalculateDimensions = function (selected) {
   }
 
   const svgroot = context_.getSVGRoot();
+  const dataStorage = context_.getDataStorage();
   const tlist = getTransformList(selected);
 
   // remove any unnecessary transforms
@@ -93,7 +93,7 @@ export const recalculateDimensions = function (selected) {
       const xform = tlist.getItem(k);
       if (xform.type === 0) {
         tlist.removeItem(k);
-      // remove identity matrices
+        // remove identity matrices
       } else if (xform.type === 1) {
         if (isIdentity(xform.matrix)) {
           if (noi === 1) {
@@ -106,16 +106,14 @@ export const recalculateDimensions = function (selected) {
           }
           tlist.removeItem(k);
         }
-      // remove zero-degree rotations
-      } else if (xform.type === 4) {
-        if (xform.angle === 0) {
-          tlist.removeItem(k);
-        }
+        // remove zero-degree rotations
+      } else if (xform.type === 4 && xform.angle === 0) {
+        tlist.removeItem(k);
       }
     }
     // End here if all it has is a rotation
     if (tlist.numberOfItems === 1 &&
-        getRotationAngle(selected)) { return null; }
+      getRotationAngle(selected)) { return null; }
   }
 
   // if this element had no transforms, we are done
@@ -135,7 +133,7 @@ export const recalculateDimensions = function (selected) {
     while (k--) {
       const xform = tlist.getItem(k);
       if (xform.type === 1) {
-        mxs.push([xform.matrix, k]);
+        mxs.push([ xform.matrix, k ]);
       } else if (mxs.length) {
         mxs = [];
       }
@@ -177,10 +175,8 @@ export const recalculateDimensions = function (selected) {
       return null;
     }
   }
-
   // Grouped SVG element
-  const gsvg = $(selected).data('gsvg');
-
+  const gsvg = (dataStorage.has(selected, 'gsvg')) ? dataStorage.get(selected, 'gsvg') : undefined;
   // we know we have some transforms, so set up return variable
   const batchCmd = new BatchCommand('Transform');
 
@@ -190,23 +186,23 @@ export const recalculateDimensions = function (selected) {
   let attrs = [];
   switch (selected.tagName) {
   case 'line':
-    attrs = ['x1', 'y1', 'x2', 'y2'];
+    attrs = [ 'x1', 'y1', 'x2', 'y2' ];
     break;
   case 'circle':
-    attrs = ['cx', 'cy', 'r'];
+    attrs = [ 'cx', 'cy', 'r' ];
     break;
   case 'ellipse':
-    attrs = ['cx', 'cy', 'rx', 'ry'];
+    attrs = [ 'cx', 'cy', 'rx', 'ry' ];
     break;
   case 'foreignObject':
   case 'rect':
   case 'image':
-    attrs = ['width', 'height', 'x', 'y'];
+    attrs = [ 'width', 'height', 'x', 'y' ];
     break;
   case 'use':
   case 'text':
   case 'tspan':
-    attrs = ['x', 'y'];
+    attrs = [ 'x', 'y' ];
     break;
   case 'polygon':
   case 'polyline': {
@@ -217,7 +213,7 @@ export const recalculateDimensions = function (selected) {
     changes.points = new Array(len);
     for (let i = 0; i < len; ++i) {
       const pt = list.getItem(i);
-      changes.points[i] = {x: pt.x, y: pt.y};
+      changes.points[i] = { x: pt.x, y: pt.y };
     }
     break;
   } case 'path':
@@ -228,36 +224,38 @@ export const recalculateDimensions = function (selected) {
   } // switch on element type to get initial values
 
   if (attrs.length) {
-    changes = $(selected).attr(attrs);
-    $.each(changes, function (attr, val) {
-      changes[attr] = convertToNum(attr, val);
+    Array.prototype.forEach.call(attrs, function (attr) {
+      changes[attr] = selected.getAttribute(attr);
     });
+    for (const [ attr, val ] of Object.entries(changes)) {
+      changes[attr] = convertToNum(attr, val);
+    }
   } else if (gsvg) {
     // GSVG exception
     changes = {
-      x: $(gsvg).attr('x') || 0,
-      y: $(gsvg).attr('y') || 0
+      x: gsvg.getAttribute('x') || 0,
+      y: gsvg.getAttribute('y') || 0
     };
   }
 
   // if we haven't created an initial array in polygon/polyline/path, then
   // make a copy of initial values and include the transform
   if (isNullish(initial)) {
-    initial = $.extend(true, {}, changes);
-    $.each(initial, function (attr, val) {
+    initial = mergeDeep({}, changes);
+    for (const [ attr, val ] of Object.entries(initial)) {
       initial[attr] = convertToNum(attr, val);
-    });
+    }
   }
   // save the start transform value too
   initial.transform = context_.getStartTransform() || '';
 
-  let oldcenter, newcenter;
+  let oldcenter; let newcenter;
 
   // if it's a regular group, we have special processing to flatten transforms
   if ((selected.tagName === 'g' && !gsvg) || selected.tagName === 'a') {
     const box = getBBox(selected);
 
-    oldcenter = {x: box.x + box.width / 2, y: box.y + box.height / 2};
+    oldcenter = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
     newcenter = transformPoint(
       box.x + box.width / 2,
       box.y + box.height / 2,
@@ -283,7 +281,7 @@ export const recalculateDimensions = function (selected) {
       }
     }
     const N = tlist.numberOfItems;
-    let tx = 0, ty = 0, operation = 0;
+    let tx = 0; let ty = 0; let operation = 0;
 
     let firstM;
     if (N) {
@@ -298,9 +296,9 @@ export const recalculateDimensions = function (selected) {
 
       // if the children are unrotated, pass the scale down directly
       // otherwise pass the equivalent matrix() down directly
-      const tm = tlist.getItem(N - 3).matrix,
-        sm = tlist.getItem(N - 2).matrix,
-        tmn = tlist.getItem(N - 1).matrix;
+      const tm = tlist.getItem(N - 3).matrix;
+      const sm = tlist.getItem(N - 2).matrix;
+      const tmn = tlist.getItem(N - 1).matrix;
 
       const children = selected.childNodes;
       let c = children.length;
@@ -342,7 +340,7 @@ export const recalculateDimensions = function (selected) {
             childTlist.clear();
             childTlist.appendItem(e2t);
             // childxforms.push(e2t);
-          // if not rotated or skewed, push the [T][S][-T] down to the child
+            // if not rotated or skewed, push the [T][S][-T] down to the child
           } else {
             // update the transform list with translate,scale,translate
 
@@ -362,9 +360,9 @@ export const recalculateDimensions = function (selected) {
             // [S2] = [T2_inv][M_inv][T][S][-T][M][-T2_inv]
             const s2 = matrixMultiply(t2.inverse(), m.inverse(), tm, sm, tmn, m, t2n.inverse());
 
-            const translateOrigin = svgroot.createSVGTransform(),
-              scale = svgroot.createSVGTransform(),
-              translateBack = svgroot.createSVGTransform();
+            const translateOrigin = svgroot.createSVGTransform();
+            const scale = svgroot.createSVGTransform();
+            const translateBack = svgroot.createSVGTransform();
             translateOrigin.setTranslate(t2n.e, t2n.f);
             scale.setScale(s2.a, s2.d);
             translateBack.setTranslate(t2.e, t2.f);
@@ -407,9 +405,9 @@ export const recalculateDimensions = function (selected) {
       e2t.setMatrix(m);
       tlist.clear();
       tlist.appendItem(e2t);
-    // next, check if the first transform was a translate
-    // if we had [ T1 ] [ M ] we want to transform this into [ M ] [ T2 ]
-    // therefore [ T2 ] = [ M_inv ] [ T1 ] [ M ]
+      // next, check if the first transform was a translate
+      // if we had [ T1 ] [ M ] we want to transform this into [ M ] [ T2 ]
+      // therefore [ T2 ] = [ M_inv ] [ T1 ] [ M ]
     } else if ((N === 1 || (N > 1 && tlist.getItem(1).type !== 3)) &&
       tlist.getItem(0).type === 2) {
       operation = 2; // translate
@@ -475,12 +473,12 @@ export const recalculateDimensions = function (selected) {
         }
         context_.setStartTransform(oldStartTransform);
       }
-    // else, a matrix imposition from a parent group
-    // keep pushing it down to the children
+      // else, a matrix imposition from a parent group
+      // keep pushing it down to the children
     } else if (N === 1 && tlist.getItem(0).type === 1 && !gangle) {
       operation = 1;
-      const m = tlist.getItem(0).matrix,
-        children = selected.childNodes;
+      const m = tlist.getItem(0).matrix;
+      const children = selected.childNodes;
       let c = children.length;
       while (c--) {
         const child = children.item(c);
@@ -510,7 +508,7 @@ export const recalculateDimensions = function (selected) {
         }
       }
       tlist.clear();
-    // else it was just a rotate
+      // else it was just a rotate
     } else {
       if (gangle) {
         const newRot = svgroot.createSVGTransform();
@@ -543,7 +541,7 @@ export const recalculateDimensions = function (selected) {
           tlist.appendItem(newRot);
         }
       }
-    // if it was a resize
+      // if it was a resize
     } else if (operation === 3) {
       const m = transformListToTransform(tlist).matrix;
       const roldt = svgroot.createSVGTransform();
@@ -551,9 +549,9 @@ export const recalculateDimensions = function (selected) {
       const rold = roldt.matrix;
       const rnew = svgroot.createSVGTransform();
       rnew.setRotate(gangle, newcenter.x, newcenter.y);
-      const rnewInv = rnew.matrix.inverse(),
-        mInv = m.inverse(),
-        extrat = matrixMultiply(mInv, rnewInv, rold, m);
+      const rnewInv = rnew.matrix.inverse();
+      const mInv = m.inverse();
+      const extrat = matrixMultiply(mInv, rnewInv, rold, m);
 
       tx = extrat.e;
       ty = extrat.f;
@@ -591,7 +589,7 @@ export const recalculateDimensions = function (selected) {
         }
       }
     }
-  // else, it's a non-group
+    // else, it's a non-group
   } else {
     // TODO: box might be null for some elements (<metadata> etc), need to handle this
     const box = getBBox(selected);
@@ -607,7 +605,7 @@ export const recalculateDimensions = function (selected) {
     // temporarily strip off the rotate and save the old center
     const angle = getRotationAngle(selected);
     if (angle) {
-      oldcenter = {x: box.x + box.width / 2, y: box.y + box.height / 2};
+      oldcenter = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
       newcenter = transformPoint(
         box.x + box.width / 2,
         box.y + box.height / 2,
@@ -644,17 +642,19 @@ export const recalculateDimensions = function (selected) {
       const fill = selected.getAttribute('fill');
       if (fill && fill.startsWith('url(')) {
         const paint = getRefElem(fill);
-        let type = 'pattern';
-        if (paint.tagName !== type) type = 'gradient';
-        const attrVal = paint.getAttribute(type + 'Units');
-        if (attrVal === 'userSpaceOnUse') {
-          // Update the userSpaceOnUse element
-          m = transformListToTransform(tlist).matrix;
-          const gtlist = getTransformList(paint);
-          const gmatrix = transformListToTransform(gtlist).matrix;
-          m = matrixMultiply(m, gmatrix);
-          const mStr = 'matrix(' + [m.a, m.b, m.c, m.d, m.e, m.f].join(',') + ')';
-          paint.setAttribute(type + 'Transform', mStr);
+        if (paint) {
+          let type = 'pattern';
+          if (paint?.tagName !== type) type = 'gradient';
+          const attrVal = paint.getAttribute(type + 'Units');
+          if (attrVal === 'userSpaceOnUse') {
+            // Update the userSpaceOnUse element
+            m = transformListToTransform(tlist).matrix;
+            const gtlist = getTransformList(paint);
+            const gmatrix = transformListToTransform(gtlist).matrix;
+            m = matrixMultiply(m, gmatrix);
+            const mStr = 'matrix(' + [ m.a, m.b, m.c, m.d, m.e, m.f ].join(',') + ')';
+            paint.setAttribute(type + 'Transform', mStr);
+          }
         }
       }
     }
@@ -673,8 +673,8 @@ export const recalculateDimensions = function (selected) {
       tlist.removeItem(N - 1);
       tlist.removeItem(N - 2);
       tlist.removeItem(N - 3);
-    // if we had [T][S][-T][M], then this was a skewed element being resized
-    // Thus, we simply combine it all into one matrix
+      // if we had [T][S][-T][M], then this was a skewed element being resized
+      // Thus, we simply combine it all into one matrix
     } else if (N === 4 && tlist.getItem(N - 1).type === 1) {
       operation = 3; // scale
       m = transformListToTransform(tlist).matrix;
@@ -684,26 +684,31 @@ export const recalculateDimensions = function (selected) {
       tlist.appendItem(e2t);
       // reset the matrix so that the element is not re-mapped
       m = svgroot.createSVGMatrix();
-    // if we had [R][T][S][-T][M], then this was a rotated matrix-element
-    // if we had [T1][M] we want to transform this into [M][T2]
-    // therefore [ T2 ] = [ M_inv ] [ T1 ] [ M ] and we can push [T2]
-    // down to the element
+      // if we had [R][T][S][-T][M], then this was a rotated matrix-element
+      // if we had [T1][M] we want to transform this into [M][T2]
+      // therefore [ T2 ] = [ M_inv ] [ T1 ] [ M ] and we can push [T2]
+      // down to the element
     } else if ((N === 1 || (N > 1 && tlist.getItem(1).type !== 3)) &&
       tlist.getItem(0).type === 2) {
       operation = 2; // translate
-      const oldxlate = tlist.getItem(0).matrix,
-        meq = transformListToTransform(tlist, 1).matrix,
-        meqInv = meq.inverse();
+      const oldxlate = tlist.getItem(0).matrix;
+      const meq = transformListToTransform(tlist, 1).matrix;
+      const meqInv = meq.inverse();
       m = matrixMultiply(meqInv, oldxlate, meq);
       tlist.removeItem(0);
-    // else if this child now has a matrix imposition (from a parent group)
-    // we might be able to simplify
+      // else if this child now has a matrix imposition (from a parent group)
+      // we might be able to simplify
     } else if (N === 1 && tlist.getItem(0).type === 1 && !angle) {
       // Remap all point-based elements
       m = transformListToTransform(tlist).matrix;
       switch (selected.tagName) {
       case 'line':
-        changes = $(selected).attr(['x1', 'y1', 'x2', 'y2']);
+        changes = {
+          x1: selected.getAttribute('x1'),
+          y1: selected.getAttribute('y1'),
+          x2: selected.getAttribute('x2'),
+          y2: selected.getAttribute('y2')
+        };
         // Fallthrough
       case 'polyline':
       case 'polygon':
@@ -714,7 +719,7 @@ export const recalculateDimensions = function (selected) {
           changes.points = new Array(len);
           for (let i = 0; i < len; ++i) {
             const pt = list.getItem(i);
-            changes.points[i] = {x: pt.x, y: pt.y};
+            changes.points[i] = { x: pt.x, y: pt.y };
           }
         }
         // Fallthrough
@@ -726,8 +731,8 @@ export const recalculateDimensions = function (selected) {
       default:
         break;
       }
-    // if it was a rotation, put the rotate back and return without a command
-    // (this function has zero work to do for a rotate())
+      // if it was a rotation, put the rotate back and return without a command
+      // (this function has zero work to do for a rotate())
     } else {
       // operation = 4; // rotation
       if (angle) {
@@ -778,19 +783,19 @@ export const recalculateDimensions = function (selected) {
           const child = children.item(c);
           if (child.tagName === 'tspan') {
             const tspanChanges = {
-              x: $(child).attr('x') || 0,
-              y: $(child).attr('y') || 0
+              x: child.getAttribute('x') || 0,
+              y: child.getAttribute('y') || 0
             };
             remapElement(child, tspanChanges, m);
           }
         }
       }
-    // [Rold][M][T][S][-T] became [Rold][M]
-    // we want it to be [Rnew][M][Tr] where Tr is the
-    // translation required to re-center it
-    // Therefore, [Tr] = [M_inv][Rnew_inv][Rold][M]
+      // [Rold][M][T][S][-T] became [Rold][M]
+      // we want it to be [Rnew][M][Tr] where Tr is the
+      // translation required to re-center it
+      // Therefore, [Tr] = [M_inv][Rnew_inv][Rold][M]
     } else if (operation === 3 && angle) {
-      const {matrix} = transformListToTransform(tlist);
+      const { matrix } = transformListToTransform(tlist);
       const roldt = svgroot.createSVGTransform();
       roldt.setRotate(angle, oldcenter.x, oldcenter.y);
       const rold = roldt.matrix;

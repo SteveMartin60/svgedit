@@ -5,8 +5,8 @@
  * @returns {void}
  */
 function touchHandler (ev) {
-  const {changedTouches} = ev,
-    first = changedTouches[0];
+  const { changedTouches } = ev;
+  const first = changedTouches[0];
 
   let type = '';
   switch (ev.type) {
@@ -16,7 +16,7 @@ function touchHandler (ev) {
   default: return;
   }
 
-  const {screenX, screenY, clientX, clientY} = first; // eslint-disable-line no-shadow
+  const { screenX, screenY, clientX, clientY } = first;
   const simulatedEvent = new MouseEvent(type, {
     // Event interface
     bubbles: true,
